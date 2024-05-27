@@ -52,6 +52,19 @@ def login(sess):
     "password": pw,
   })
 
+def get_fire(sess, con, cur):
+  res = sess.post("https://member.inven.co.kr/user/scorpio/chk/skill/point",
+    headers={'referer': 'https://member.inven.co.kr/user/scorpio/mlogin'},
+    data={
+      "surl": "https://www.inven.co.kr/"
+    }
+  )
+  resj = json.loads(res.text)
+  if resj['result'] != 'success' or resj['login'] == None:
+    raise Exception(f'Failed to get fire: {res.text}')
+  cur.execute('INSERT INTO etc_log (type, msg) VALUES (?, ?)', ('fire', res.text))
+  con.commit()
+
 def get_exp(sess):
   res = sess.get("https://www.inven.co.kr/member/skill/")
   tree = etree.HTML(res.text)
@@ -79,8 +92,11 @@ def get_ad(sess, con, cur):
   try:
     sess.get(adurl, timeout=10, verify=False)
   except requests.exceptions.ReadTimeout:
-    raise Exception(f'Timeout on {adurl}')
+    raise Exception(f'ReadTimeout on {adurl}')
+  except requests.exceptions.ConnectionError:
+    raise Exception(f'ConnectionError on {adurl}')
   post_exp = get_exp(sess)
+  print(f'Exp: {pre_exp} -> {post_exp}, visited {adurl}')
   if pre_exp < post_exp:
     cur.execute('INSERT INTO ad_log (ad_url, src_url, exp_gain) VALUES (?, ?, ?)', (adurl, url, post_exp - pre_exp))
     cur.execute('INSERT INTO exp_log (exp) VALUES (?)', (post_exp,))
@@ -114,12 +130,14 @@ def inven_main():
   it = 0
   while True:
     try:
-      if it % 1000 == 0:
+      if it % 2000 == 0:
+        get_fire(sess, con, cur)
+        time.sleep(1)
+        get_attend(sess, con, cur)
+        time.sleep(1)
         for i in range(6):
           get_imarble(sess, con, cur)
           time.sleep(1)
-        get_attend(sess, con, cur)
-        time.sleep(1)
       get_ad(sess, con, cur)
       time.sleep(1)
     except KeyboardInterrupt:
@@ -130,3 +148,6 @@ def inven_main():
       cur.execute('INSERT INTO etc_log (type, msg) VALUES (?, ?)', ('error', err_str))
       con.commit()
     it += 1
+  
+if __name__ == "__main__":
+  inven_main()

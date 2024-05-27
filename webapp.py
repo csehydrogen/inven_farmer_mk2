@@ -7,7 +7,8 @@ def serve_layout():
   con, cur = init_db()
   cur.execute('SELECT * FROM exp_log ORDER BY created_at DESC LIMIT 100')
   data = cur.fetchall()
-  fig = px.line(data, x='created_at', y='exp', labels={'created_at': 'Time', 'exp': 'Exp'})
+  fig = px.line(data, x='created_at', y='exp', labels={'created_at': 'Time', 'exp': 'Exp'},
+    hover_data={'exp': ':d'})
 
   return html.Div(children=[
     html.H1(children='Inven Farmer 2.0'),
@@ -68,3 +69,7 @@ def update_etc_log_table(page_current, page_size):
 
 app = Dash()
 app.layout = serve_layout
+
+if __name__ == "__main__":
+  app.run(host='0.0.0.0', port=22546)
+  #app.run(host='0.0.0.0', port=22546, debug=True)
